@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aviation Roster Maker</title>
+    
+    <!-- External Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <style>
+        /* --- 1. General Styles --- */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f0f2f5; color: #333; margin: 0; padding: 10px;
+        }
+        
+        .page { display: none; }
+        
+        .container {
+            max-width: 1600px; margin: auto; background: #fff; padding: 20px;
+            border-radius: 12px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        /* --- 2. Button Styles --- */
+        .btn {
+            display: inline-block; text-decoration: none; text-align: center;
+            padding: 10px 20px; border: none; border-radius: 6px; font-size: 16px; font-weight: 500;
+            cursor: pointer; transition: background-color 0.2s, transform 0.1s; margin: 5px;
+        }
+        .btn:active { transform: translateY(1px); }
+        .btn-primary { background-color: #007bff; color: white; }
+        .btn-success { background-color: #28a745; color: white; }
+        .btn-danger { background-color: #dc3545; color: white; }
+        .btn:hover { opacity: 0.9; }
+
+        /* --- 3. Login Page Styles --- */
+        #welcomePage-container { text-align: center; padding: 80px 20px; max-width: 600px; margin-top: 5vh; }
+        #welcomePage-container h1 { font-size: 32px; color: #005a9e; margin: 0; }
+        #welcomePage-container .subtitle { font-size: 16px; color: #777; margin-top: 5px; font-style: italic; }
+        #welcomePage-container input[type="text"] { 
+            padding: 12px; width: 100%; max-width: 300px; margin-top: 30px; margin-bottom: 15px;
+            border: 1px solid #ccc; border-radius: 6px; font-size: 16px; text-align: center;
+        }
+
+        /* --- 4. Roster App Layout --- */
+        .header-flex { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #f0f0f0; padding-bottom: 15px; }
+        .header h1 { color: #005a9e; margin: 0; font-size: 24px; }
+
+        .top-controls { display: flex; gap: 20px; align-items: center; margin-bottom: 20px; flex-wrap: wrap; background: #f8f9fa; padding: 15px; border-radius: 8px; }
+        .top-controls label { font-weight: bold; margin-right: 5px; }
+        .top-controls input, .top-controls select { padding: 8px; border: 1px solid #ccc; border-radius: 4px; }
+
+        .input-grid { display: flex; gap: 20px; margin-bottom: 25px; }
+        .input-grid > div { flex: 1; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background-color: #f9f9fb;}
+        
+        #flstData { width: 100%; height: 150px; text-transform: uppercase; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-family: monospace; }
+        input, textarea, select { text-transform: uppercase; box-sizing: border-box; }
+        
+        .prefixed-input { display: flex; align-items: center; border: 1px solid #ccc; border-radius: 4px; overflow: hidden; background: #fff; }
+        .prefixed-input span { padding: 6px 8px; background: #e9ecef; color: #495057; font-weight: bold; font-size: 12px; border-right: 1px solid #ccc;}
+        .prefixed-input input { border: none; outline: none; padding: 6px 8px; width: 100%; }
+
+        /* --- 5. Tables --- */
+        .roster-table-wrapper { overflow-x: auto; border: 1px solid #eee; border-radius: 8px; }
+        .roster-table { width: 100%; border-collapse: collapse; min-width: 800px; }
+        .roster-table th, .roster-table td { border: 1px solid #dee2e6; padding: 8px; text-align: left; vertical-align: middle; font-size: 13px;}
+        .roster-table thead { background-color: #005a9e; color: white; }
+        .roster-table td input { width: 100%; border: 1px solid #ccc; padding: 5px; border-radius: 3px; }
+
+        .btn-add { background-color: #28a745; color: white; border-radius: 50%; width: 28px; height: 28px; font-size: 16px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .btn-delete { background-color: #dc3545; color: white; border-radius: 4px; padding: 4px 8px; font-size: 12px; border: none; cursor: pointer; }
+
+        /* --- 6. Assignment Grid & Position Cards --- */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        
+        .position-card { background-color: #fff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 0; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: hidden; }
+        
+        /* Standard Header */
+        .position-card .pos-title { font-weight: bold; color: #005a9e; font-size: 15px; padding: 10px 15px; border-bottom: 1px solid #eee; background-color: #fcfcfc; }
+        .position-card .names { padding: 10px 15px; }
+        
+        /* Stylish Duty Manager Header */
+        .position-card-manager { border: 2px solid #005a9e; }
+        .position-card-manager .pos-title { 
+            background-color: #004085; /* Dark Blue */
+            color: white; 
+            text-align: center; 
+            font-size: 16px; 
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        /* Manager Name Styling */
+        .position-card-manager .name-item input { 
+            font-weight: bold; 
+            font-size: 14px; 
+            text-align: center;
+            background-color: #f0f8ff;
+            border-color: #b8daff;
+        }
+        
+        .name-item input { width: 100%; border: 1px solid #ddd; padding: 6px; border-radius: 4px; margin-bottom: 5px; font-size: 13px; }
+
+        /* --- 7. Mobile Responsiveness --- */
+        @media screen and (max-width: 768px) {
+            body { padding: 5px; }
+            .container { padding: 10px; }
+            .header h1 { font-size: 20px; }
+            .input-grid { flex-direction: column; }
+            .top-controls { flex-direction: column; align-items: stretch; }
+            .roster-table th, .roster-table td { padding: 5px; font-size: 12px; }
+            #dutyPlanGenerator .grid { grid-template-columns: 1fr; } 
+            #dutyPlanGenerator .section { margin-bottom: 30px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- PAGE 1: LOGIN -->
+    <div id="welcomePage" class="page">
+        <div class="container" id="welcomePage-container">
+            <p>Welcome To</p>
+            <h1>Aviation Roster Maker</h1>
+            <p class="subtitle">invention of radoan rasel</p>
+            <div class="input-group">
+                <input type="text" id="creatorName" placeholder="Enter your name to begin">
+                <br>
+                <button class="btn btn-primary" id="loginBtn" style="width: 200px;">Login</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PAGE 2: CREATION -->
+    <div id="creationPage" class="page">
+        <div class="container">
+            <div class="header header-flex">
+                <h1>Roster Creation</h1>
+                <button id="logoutBtn" class="btn btn-danger">Logout</button>
+            </div>
+            
+            <div class="top-controls">
+                <div><label for="rosterDate">Date:</label><input type="date" id="rosterDate"></div>
+                <div><label for="shiftSelector">Session:</label><select id="shiftSelector"><option value="" disabled selected>Select Session</option><option value="MORNING">MORNING</option><option value="EVENING">EVENING</option></select></div>
+            </div>
+            
+            <div class="input-grid">
+                <div>
+                    <label for="flstData"><strong>1. Copy and Paste Flight Data</strong></label>
+                    <textarea id="flstData" placeholder="Paste FLST data here..."></textarea>
+                </div>
+                <div>
+                    <label for="fileInput"><strong>2. Upload Duty Plan (XLSX file)</strong></label>
+                    <div style="background: #f8f9fa; padding: 15px; border: 2px dashed #ccc; border-radius: 6px; text-align: center; margin-top: 10px;">
+                        <input id="fileInput" type="file" accept=".xlsx,.xls" style="width:100%" />
+                    </div>
+                    <span id="uploadStatus" class="status" style="font-size:13px; font-weight:bold; color:#005a9e; display:block; margin-top:10px; text-align: center;"></span>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin: 30px 0;">
+                <button class="btn btn-success" id="unifiedGenerateBtn" style="padding: 12px 40px; font-size: 18px; box-shadow: 0 4px 6px rgba(40, 167, 69, 0.2);">Generate Roster</button>
+            </div>
+            
+            <hr style="border: 0; border-top: 2px dashed #eee; margin: 40px 0;">
+            
+            <h2>Generated Previews</h2>
+            <div id="dutyRosterGenerator">
+                <h3>Flight Duty Roster Preview</h3>
+                <h4>DOMESTIC FLIGHTS</h4>
+                <div class="roster-table-wrapper" id="dom-roster-preview">
+                    <table class="roster-table">
+                        <thead><tr><th>Action</th><th>BAY</th><th>PL</th><th>FLT No</th><th>SEC</th><th>A/C</th><th>TIME</th><th>TRIM MAN</th><th>GOLF 7</th><th>Remove</th></tr></thead>
+                        <tbody id="rosterBodyDom"></tbody>
+                    </table>
+                </div>
+                <h4 style="margin-top: 25px;">INTERNATIONAL FLIGHTS</h4>
+                <div class="roster-table-wrapper" id="int-roster-preview">
+                    <table class="roster-table">
+                        <thead><tr><th>Action</th><th>BAY</th><th>PL</th><th>FLT No</th><th>SEC</th><th>A/C</th><th>TIME</th><th>TRIM MAN</th><th>GOLF 7</th><th>Remove</th></tr></thead>
+                        <tbody id="rosterBodyInt"></tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <div id="dutyPlanGenerator" style="margin-top: 40px;">
+                <h3>Duty Plan Preview</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                    <div class="section">
+                        <h4 style="background:#eee; padding:10px; border-radius:4px; text-align:center;">DOMESTIC</h4>
+                        <div id="domGrid" class="grid"></div>
+                    </div>
+                    <div class="section">
+                        <h4 style="background:#eee; padding:10px; border-radius:4px; text-align:center;">INTERNATIONAL</h4>
+                        <div id="intGrid" class="grid"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 40px; margin-bottom: 20px;">
+                <button class="btn btn-primary" id="createRosterBtn" style="padding: 15px 40px; font-size: 20px; box-shadow: 0 4px 10px rgba(0, 90, 158, 0.3);">Create Final Roster</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            let creatorName = "N/A";
+            let loadedFile = null;
+
+            // --- INITIALIZATION ---
+            checkLoginStatus();
+
+            // --- EVENT LISTENERS ---
+            document.getElementById('loginBtn').addEventListener('click', handleLogin);
+            document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+            document.getElementById('createRosterBtn').addEventListener('click', openRosterInNewTab);
+            
+            document.getElementById('unifiedGenerateBtn').addEventListener('click', () => {
+                const rosterDate = document.getElementById('rosterDate').value;
+                const flstData = document.getElementById('flstData').value.trim();
+                const session = document.getElementById('shiftSelector').value;
+
+                let errorMessages = [];
+                if (!rosterDate) errorMessages.push("Please select a date.");
+                if (!session) errorMessages.push("Please select a session.");
+                if (flstData === '' && document.getElementById('rosterBodyDom').innerHTML === "") errorMessages.push("Please copy and paste Flight Data.");
+                if (document.getElementById('rosterBodyDom').innerHTML === "" && !loadedFile) errorMessages.push("Please upload the Duty Plan (XLSX).");
+
+                if (errorMessages.length > 0 && document.getElementById('rosterBodyDom').innerHTML === "") {
+                    alert("Issues:\n- " + errorMessages.join('\n- '));
+                    return; 
+                }
+                
+                if(flstData) processData();
+                if(loadedFile) processExcel();
+                saveGeneratedContent();
+            });
+
+            ['rosterDate', 'shiftSelector', 'flstData'].forEach(id => {
+                document.getElementById(id).addEventListener('input', (e) => localStorage.setItem(id, e.target.value));
+            });
+
+            const rosterGeneratorEl = document.getElementById('dutyRosterGenerator');
+            const dutyPlanGeneratorEl = document.getElementById('dutyPlanGenerator');
+
+            [rosterGeneratorEl, dutyPlanGeneratorEl].forEach(container => {
+                container.addEventListener('input', () => saveGeneratedContent());
+                container.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('btn-add') || e.target.classList.contains('btn-delete')) {
+                        setTimeout(saveGeneratedContent, 100);
+                    }
+                });
+            });
+            
+            rosterGeneratorEl.addEventListener('click', (e) => {
+                if (e.target.classList.contains('btn-add')) addManualRow(e.target);
+                if (e.target.classList.contains('btn-delete')) { e.target.closest('tr').remove(); saveGeneratedContent(); }
+            });
+            
+            rosterGeneratorEl.addEventListener('input', (e) => {
+                if (e.target.dataset.type === 'time-format') autoFormatTime(e.target);
+            });
+
+            rosterGeneratorEl.addEventListener('blur', (e) => {
+                const target = e.target;
+                if(target.dataset.type === 'time-format') {
+                    const tbody = target.closest('tbody');
+                    if(tbody) sortTableByTime(tbody);
+                    saveGeneratedContent();
+                }
+                if(target.dataset.type === 'flight-number-input') {
+                    updateTrimMan(target);
+                    saveGeneratedContent();
+                }
+            }, true);
+
+            document.getElementById('fileInput').addEventListener('change', handleFileSelect);
+
+            // --- FUNCTIONS ---
+
+            function handleLogin() {
+                const nameInput = document.getElementById('creatorName').value.trim();
+                if (!nameInput) { alert("Please enter your name."); return; }
+                creatorName = nameInput;
+                localStorage.setItem('isLoggedIn', 'true');
+                localStorage.setItem('creatorName', creatorName);
+                showPage('creationPage');
+            }
+
+            function handleLogout() {
+                if(confirm("Are you sure? This will delete all saved data.")) {
+                    localStorage.clear();
+                    location.reload(); 
+                }
+            }
+
+            function checkLoginStatus() {
+                const isLoggedIn = localStorage.getItem('isLoggedIn');
+                if (isLoggedIn === 'true') {
+                    creatorName = localStorage.getItem('creatorName') || "N/A";
+                    document.getElementById('rosterDate').value = localStorage.getItem('rosterDate') || "";
+                    document.getElementById('shiftSelector').value = localStorage.getItem('shiftSelector') || "";
+                    document.getElementById('flstData').value = localStorage.getItem('flstData') || "";
+
+                    const savedDomBody = localStorage.getItem('rosterBodyDom');
+                    const savedIntBody = localStorage.getItem('rosterBodyInt');
+                    const savedDomGrid = localStorage.getItem('domGrid');
+                    const savedIntGrid = localStorage.getItem('intGrid');
+
+                    if (savedDomBody) document.getElementById('rosterBodyDom').innerHTML = savedDomBody;
+                    if (savedIntBody) document.getElementById('rosterBodyInt').innerHTML = savedIntBody;
+                    if (savedDomGrid) document.getElementById('domGrid').innerHTML = savedDomGrid;
+                    if (savedIntGrid) document.getElementById('intGrid').innerHTML = savedIntGrid;
+
+                    restoreInputValues('rosterBodyDom');
+                    restoreInputValues('rosterBodyInt');
+                    restoreInputValues('domGrid');
+                    restoreInputValues('intGrid');
+                    showPage('creationPage');
+                } else {
+                    showPage('welcomePage');
+                }
+            }
+
+            function showPage(pageId) {
+                document.querySelectorAll('.page').forEach(p => p.style.display = 'none');
+                document.getElementById(pageId).style.display = 'block';
+            }
+
+            function saveGeneratedContent() {
+                bakeInputValues('rosterBodyDom');
+                bakeInputValues('rosterBodyInt');
+                bakeInputValues('domGrid');
+                bakeInputValues('intGrid');
+                localStorage.setItem('rosterBodyDom', document.getElementById('rosterBodyDom').innerHTML);
+                localStorage.setItem('rosterBodyInt', document.getElementById('rosterBodyInt').innerHTML);
+                localStorage.setItem('domGrid', document.getElementById('domGrid').innerHTML);
+                localStorage.setItem('intGrid', document.getElementById('intGrid').innerHTML);
+            }
+
+            function bakeInputValues(containerId) {
+                const container = document.getElementById(containerId);
+                if(!container) return;
+                container.querySelectorAll('input').forEach(input => input.setAttribute('value', input.value));
+            }
+
+            function restoreInputValues(containerId) {
+                const container = document.getElementById(containerId);
+                if(!container) return;
+                container.querySelectorAll('input').forEach(input => {
+                    if (input.hasAttribute('value')) input.value = input.getAttribute('value');
+                });
+            }
+
+            function handleFileSelect(e) {
+                loadedFile = e.target.files[0];
+                document.getElementById('uploadStatus').textContent = loadedFile ? `'${loadedFile.name}' selected.` : '';
+            }
+
+            function addManualRow(btn) {
+                const newRow = document.createElement('tr');
+                newRow.innerHTML = `<td><button class="btn-add">+</button></td>
+                    <td><input type="text" placeholder="BAY"></td>
+                    <td><input type="text" placeholder="PL" style="width: 50px; text-align: center;"></td>
+                    <td><div class="prefixed-input"><span>BS-</span><input type="text" placeholder="000" data-type="flight-number-input"></div></td>
+                    <td><input type="text" placeholder="SEC"></td>
+                    <td><input type="text" placeholder="XXX"></td>
+                    <td><input type="text" placeholder="HH:MM" data-type="time-format"></td>
+                    <td class="trim-man-cell"><input type="text" placeholder="TRIM MAN" style="text-align: center;"></td>
+                    <td><input type="text" placeholder="GOLF 7" style="text-align: center;"></td>
+                    <td><button class="btn-delete">X</button></td>`;
+                btn.closest('tr').after(newRow);
+                saveGeneratedContent();
+            }
+
+            function updateTrimMan(input) {
+                const flightNumberStr = input.value.replace(/[^0-9]/g, '');
+                const flightNumberInt = parseInt(flightNumberStr, 10);
+                const row = input.closest('tr');
+                const cell = row.querySelector('.trim-man-cell');
+                
+                if (!cell || !flightNumberStr) { row.style.backgroundColor = ''; return; }
+                
+                const isEven = !isNaN(flightNumberInt) && flightNumberInt % 2 === 0;
+                row.style.backgroundColor = isEven ? '#D3D3D3' : ''; 
+                if (isEven) { cell.innerHTML = 'N/A'; cell.style.cssText = 'text-align:center;color:#888;'; } 
+                else if (!cell.querySelector('input')) { cell.innerHTML = '<input type="text" placeholder="TRIM MAN" style="text-align: center;">'; cell.style.cssText = ''; }
+            }
+
+            function autoFormatTime(input) {
+                let val = input.value.replace(/[^0-9]/g, '').slice(0, 4);
+                if (val.length > 2) val = `${val.slice(0, 2)}:${val.slice(2)}`;
+                input.value = val;
+            }
+            
+            function sortTableByTime(tbody) {
+                Array.from(tbody.rows).sort((a, b) => {
+                    const timeA = a.querySelector('[data-type="time-format"]')?.value.replace(':', '') || '9999';
+                    const timeB = b.querySelector('[data-type="time-format"]')?.value.replace(':', '') || '9999';
+                    return parseInt(timeA) - parseInt(timeB);
+                }).forEach(row => tbody.appendChild(row));
+            }
+
+            function processData() {
+                const internationalDurations = { 'DXB':{h:5,m:0},'AUH':{h:5,m:0},'SHJ':{h:5,m:30},'DOH':{h:5,m:0},'MCT':{h:5,m:0},'RUH':{h:6,m:0},'JED':{h:6,m:0},'SIN':{h:4,m:45},'CAN':{h:6,m:0},'MAA':{h:2,m:50},'KUL':{h:5,m:0},'MLE':{h:4,m:15},'BKK':{h:4,m:20},'CCU':{h:1,m:30} };
+                const domesticOrigins = ['CGP', 'RJH', 'SPD', 'CXB', 'JSR', 'ZYL'];
+                
+                function calculateArrivalTime(departureTime, addHours, addMinutes) {
+                    const timeParts = departureTime.split(':');
+                    if (timeParts.length !== 2) return departureTime; 
+                    const hours = parseInt(timeParts[0], 10), minutes = parseInt(timeParts[1], 10);
+                    if (isNaN(hours) || isNaN(minutes)) return departureTime;
+                    const departureDate = new Date();
+                    departureDate.setHours(hours, minutes, 0, 0);
+                    departureDate.setHours(departureDate.getHours() + addHours);
+                    departureDate.setMinutes(departureDate.getMinutes() + addMinutes);
+                    return `${String(departureDate.getHours()).padStart(2,'0')}:${String(departureDate.getMinutes()).padStart(2,'0')}`;
+                }
+
+                const rawData = document.getElementById('flstData').value.toUpperCase();
+                const shift = document.getElementById('shiftSelector').value;
+                const rosterBodyDom = document.getElementById('rosterBodyDom');
+                const rosterBodyInt = document.getElementById('rosterBodyInt');
+                rosterBodyDom.innerHTML = ''; rosterBodyInt.innerHTML = '';
+
+                rawData.trim().split('\n').forEach(line => {
+                    const parts = line.trim().split(/\s+/);
+                    if (parts.length > 10 && parts[1] === 'BS') {
+                        const fltNumRaw = parts[2], flightNumber = parseInt(fltNumRaw, 10), dest = parts[4];
+                        const origin = (dest === 'DAC') ? parts[3] : dest;
+                        let time = parts[6];
+                        
+                        const isEven = !isNaN(flightNumber) && flightNumber % 2 === 0;
+                        if (isEven) {
+                            if (internationalDurations[origin]) {
+                                const duration = internationalDurations[origin];
+                                time = calculateArrivalTime(time, duration.h, duration.m);
+                            } else if (domesticOrigins.includes(origin)) time = calculateArrivalTime(time, 0, 50);
+                        }
+                        
+                        let sec = (dest === 'DAC') ? origin : dest;
+                        const timeNum = parseInt(time.replace(':', ''), 10);
+                        const show = (shift === 'MORNING' && timeNum <= 1430) || (shift === 'EVENING' && timeNum >= 1400);
+                        let pl = parts[13] || '';
+
+                        if (show) {
+                            const isDomestic = domesticOrigins.includes(sec) || domesticOrigins.includes(parts[3]);
+                            const targetBody = isDomestic ? rosterBodyDom : rosterBodyInt;
+                            const newRow = targetBody.insertRow();
+                            if (isEven) newRow.style.backgroundColor = '#D3D3D3'; 
+                            
+                            const acReg = parts[10].startsWith('S2-') ? parts[10].substring(3) : parts[10];
+                            
+                            newRow.innerHTML = `<td><button class="btn-add">+</button></td>
+                                <td><input type="text" placeholder="BAY"></td>
+                                <td><input type="text" value="${pl}" style="width: 50px; text-align: center;"></td>
+                                <td><div class="prefixed-input"><span>BS-</span><input type="text" value="${fltNumRaw}" data-type="flight-number-input"></div></td>
+                                <td><input type="text" value="${sec}"></td>
+                                <td><input type="text" value="${acReg}"></td>
+                                <td><input type="text" value="${time}" data-type="time-format"></td>
+                                ${isEven ? '<td class="trim-man-cell" style="text-align:center;color:#888;">N/A</td>' : '<td class="trim-man-cell"><input type="text" placeholder="TRIM MAN" style="text-align: center;"></td>'}
+                                <td><input type="text" placeholder="GOLF 7" style="text-align: center;"></td>
+                                <td><button class="btn-delete">X</button></td>`;
+                        }
+                    }
+                });
+                saveGeneratedContent(); 
+            }
+
+            async function processExcel() {
+                const statusEl = document.getElementById('uploadStatus');
+                if (!loadedFile) return;
+                statusEl.textContent = 'Processing...';
+                try {
+                    const data = await loadedFile.arrayBuffer();
+                    const workbook = XLSX.read(data, { type: "array" });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    const getRaw = (r, c) => (jsonData[r] && jsonData[r][c] !== undefined) ? String(jsonData[r][c]).trim() : '';
+
+                    const isValidName = (val) => {
+                        if (!val) return false;
+                        const s = val.trim();
+                        if (s === '') return false;
+                        if (['↓', '⬇', '▼', '⇩'].includes(s)) return false;
+                        return true;
+                    };
+
+                    const domesticAssignments = [];
+                    const internationalAssignments = [];
+                    
+                    const startCol = 1; 
+                    const endCol = 20;
+
+                    // --- DOMESTIC LOGIC ---
+                    for (let c = startCol; c <= endCol; c++) {
+                        const title = getRaw(24, c); // Row 25
+                        if (title && title !== "POSITION") {
+                            let supervisor = getRaw(25, c); // Row 26
+                            if (!isValidName(supervisor)) supervisor = null;
+
+                            const staff = [];
+                            for (let r = 26; r <= 36; r++) { // Rows 27-37
+                                const s = getRaw(r, c);
+                                if (isValidName(s)) staff.push(s);
+                            }
+                            
+                            if (supervisor || staff.length > 0) {
+                                domesticAssignments.push({ title: title, supervisor: supervisor, staff: staff });
+                            }
+                        }
+                    }
+
+                    // --- INTERNATIONAL LOGIC ---
+                    for (let c = startCol; c <= endCol; c++) {
+                        const title = getRaw(2, c); // Row 3
+                        if (title && title !== "POSITION") {
+                            let supervisor = getRaw(3, c); // Row 4
+                            if (!isValidName(supervisor)) supervisor = null;
+
+                            const staff = [];
+                            for (let r = 4; r <= 18; r++) { // Rows 5-19
+                                const s = getRaw(r, c);
+                                if (isValidName(s)) staff.push(s);
+                            }
+
+                            if (supervisor || staff.length > 0) {
+                                internationalAssignments.push({ title: title, supervisor: supervisor, staff: staff });
+                            }
+                        }
+                    }
+
+                    populateGrids({ domestic: domesticAssignments, international: internationalAssignments });
+                    statusEl.textContent = `Generated from '${loadedFile.name}'.`;
+                    saveGeneratedContent();
+
+                } catch (err) { 
+                    console.error("Error processing Excel file:", err);
+                    statusEl.textContent = 'Error parsing file.'; 
+                }
+            }
+
+            function populateGrids({ domestic, international }) {
+                const domGrid = document.getElementById('domGrid');
+                const intGrid = document.getElementById('intGrid');
+                domGrid.innerHTML = ''; intGrid.innerHTML = '';
+                domestic.forEach(pos => domGrid.appendChild(createPositionCard(pos)));
+                international.forEach(pos => intGrid.appendChild(createPositionCard(pos)));
+            }
+
+            function createPositionCard({ title, supervisor, staff }) {
+                const upperTitle = title.toUpperCase();
+                const isManager = upperTitle.includes('INCHARGE') || upperTitle.includes('IN CHARGE');
+                
+                if (isManager) title = 'DUTY MANAGER';
+                
+                const card = document.createElement('div'); 
+                card.className = 'position-card ' + (isManager ? 'position-card-manager' : '');
+                card.innerHTML = `<div class="pos-title">${title}</div><div class="names"></div>`;
+                
+                const namesContainer = card.querySelector('.names');
+                
+                if (isManager) {
+                    // Collect ALL managers (Supervisor slot + Staff slots)
+                    const allManagers = [];
+                    if (supervisor) allManagers.push(supervisor);
+                    if (staff && staff.length > 0) allManagers.push(...staff);
+
+                    allManagers.forEach(mgrName => {
+                        namesContainer.innerHTML += `<div class="name-item"><input type="text" value="${mgrName}"></div>`;
+                    });
+                } else {
+                    // Normal Logic
+                    if (supervisor) {
+                        namesContainer.innerHTML += `<div class="name-item"><input type="text" value="${supervisor} (SUP)" style="font-weight: bold;"></div>`;
+                    }
+                    staff.forEach(s => {
+                        namesContainer.innerHTML += `<div class="name-item"><input type="text" value="${s}"></div>`;
+                    });
+                }
+                return card;
+            }
+
+            function openRosterInNewTab() {
+                saveGeneratedContent(); 
+                const rosterHTML = generateResultContent();
+                const newTab = window.open('', '_blank');
+
+                newTab.document.open();
+                newTab.document.write(`
+                    <!DOCTYPE html>
+                    <html lang="en">
+                    <head>
+                        <meta charset="UTF-8">
+                        <meta name="viewport" content="width=1024">
+                        <title>Duty Roster</title>
+                        <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"><\/script>
+                        <style>
+                            @media print { 
+                                body { -webkit-print-color-adjust: exact; color-adjust: exact; margin: 0; } 
+                                .no-print { display: none !important; }
+                                @page { size: A4 portrait; margin: 5mm; }
+                            }
+                            
+                            body { font-family: Arial, sans-serif; margin: 0; padding: 10px; background-color: #fff; color: #000; transform-origin: top center; width: 100%; box-sizing: border-box; }
+                            
+                            #resultContainer { width: 100%; max-width: 800px; margin: 0 auto; box-sizing: border-box; }
+                            
+                            .controls { margin-bottom: 20px; text-align: center; }
+                            .btn { padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; text-decoration: none;}
+                            .btn:hover { background-color: #0056b3; }
+
+                            .pdf-header { text-align: center; margin-bottom: 10px; }
+                            .pdf-header h1 { font-size: 16px; font-weight: bold; margin: 0; }
+                            .pdf-header p { font-size: 11px; margin: 2px 0; }
+                            .pdf-header h3 { font-size: 14px; font-weight: bold; margin: 4px 0 0 0; }
+                            
+                            .final-roster-grid { display: grid; grid-template-columns: 5fr 2.5fr 2.5fr; gap: 8px; align-items: flex-start; }
+                            
+                            .flight-duty-column h4, .result-section-title { font-size: 10px; font-weight: bold; text-align: center; padding: 3px; margin: 0 0 5px 0; border: 1px solid #000; background-color: #E8E8E8; text-transform: uppercase; }
+                            #internationalFlightsResult { margin-top: 10px; }
+                            
+                            .roster-table { width: 100%; border-collapse: collapse; font-size: 9px; }
+                            .roster-table thead th { background-color: #E8E8E8; font-weight: bold; padding: 2px 3px; border: 1px solid #000; }
+                            .roster-table th, .roster-table td { border: 1px solid #000; padding: 2px 3px; text-align: center; font-weight: bold; }
+                            .roster-table tr[data-even-flight="true"] { background-color: #D3D3D3 !important; }
+                            
+                            .assignments-column .pdf-card { border: 1px solid #000; padding: 3px; margin-bottom: 4px; page-break-inside: avoid; }
+                            .assignments-column .pdf-pos-title { font-size: 9px; font-weight: bold; border-bottom: 1px solid #000; padding-bottom: 2px; margin-bottom: 2px; text-align: center; text-transform: uppercase; background-color: #E8E8E8; }
+                            .assignments-column .pdf-name { line-height: 1.2; font-size: 9px; font-weight: bold; }
+                            
+                            /* Stylish Manager Card in PDF */
+                            .assignments-column .pdf-card-manager { border: 2px solid #000; }
+                            .assignments-column .pdf-card-manager .pdf-pos-title { 
+                                background-color: #000; color: #fff; border-bottom: none; font-size: 10px; padding: 4px; 
+                            }
+                            .assignments-column .pdf-card-manager .pdf-name { 
+                                font-size: 10px; text-align: center; padding: 3px; font-weight: 800;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="controls no-print">
+                            <button class="btn" onclick="downloadPDF()">Download PDF (Mobile)</button>
+                            <button class="btn" onclick="window.print()" style="background:#6c757d; margin-left:10px;">Print (PC)</button>
+                        </div>
+                        <div id="resultContainer">${rosterHTML}</div>
+                        
+                        <script>
+                            window.onload = function() {
+                                const container = document.getElementById('resultContainer');
+                                const MAX_HEIGHT = 1090; 
+                                const contentHeight = container.scrollHeight;
+                                if (contentHeight > MAX_HEIGHT) {
+                                    const scaleFactor = MAX_HEIGHT / contentHeight;
+                                    document.body.style.zoom = scaleFactor;
+                                }
+                            };
+
+                            function downloadPDF() {
+                                const element = document.getElementById('resultContainer');
+                                const opt = {
+                                    margin: 5,
+                                    filename: 'duty-roster.pdf',
+                                    image: { type: 'jpeg', quality: 0.98 },
+                                    html2canvas: { scale: 2, useCORS: true },
+                                    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                                };
+                                html2pdf().set(opt).from(element).save();
+                            }
+                        <\/script>
+                    </body>
+                    </html>
+                `);
+                newTab.document.close();
+            }
+
+            function generateResultContent() {
+                saveGeneratedContent(); 
+                const tempContainer = document.createElement('div');
+                const date = document.getElementById('rosterDate').value;
+                const sessionTitle = document.getElementById('shiftSelector').value + " DUTY ROSTER";
+                
+                tempContainer.innerHTML = `
+                    <div class="pdf-header"><h1>CSD DUTY ROSTER</h1><p>Date: ${date} | Created By: ${creatorName}</p><h3>${sessionTitle}</h3></div>
+                    <div class="final-roster-grid">
+                        <div class="flight-duty-column" id="dutyRosterResult"></div>
+                        <div class="assignments-column" id="domesticAssignmentsResult"></div>
+                        <div class="assignments-column" id="internationalAssignmentsResult"></div>
+                    </div>`;
+
+                const dutyRosterResultContainer = tempContainer.querySelector('#dutyRosterResult');
+
+                const processTableForOutput = (tableNode) => {
+                    if (!tableNode) return null;
+                    const clonedTable = tableNode.cloneNode(true);
+                    clonedTable.querySelectorAll('th:first-child, td:first-child, th:last-child, td:last-child').forEach(el => el.style.display = 'none');
+                    clonedTable.querySelectorAll('tbody tr').forEach(row => {
+                        if (row.style.backgroundColor) { row.setAttribute('data-even-flight', 'true'); }
+                        row.querySelectorAll('td').forEach(cell => {
+                            let finalValue = '';
+                            const prefixedInput = cell.querySelector('.prefixed-input');
+                            const simpleInput = cell.querySelector('input');
+                            if (prefixedInput) finalValue = prefixedInput.querySelector('span').textContent + prefixedInput.querySelector('input').value;
+                            else if (simpleInput) finalValue = simpleInput.value;
+                            else finalValue = cell.textContent;
+                            cell.innerHTML = finalValue.toUpperCase();
+                        });
+                    });
+                    return clonedTable;
+                };
+
+                const domRosterTable = processTableForOutput(document.querySelector('#dom-roster-preview .roster-table'));
+                if(domRosterTable) {
+                    dutyRosterResultContainer.innerHTML += '<h4>DOMESTIC FLIGHTS</h4>';
+                    dutyRosterResultContainer.appendChild(domRosterTable);
+                }
+                
+                const intRosterTable = processTableForOutput(document.querySelector('#int-roster-preview .roster-table'));
+                if(intRosterTable) {
+                    const intFlightsResultDiv = document.createElement('div');
+                    intFlightsResultDiv.id = 'internationalFlightsResult';
+                    intFlightsResultDiv.innerHTML = '<h4>INTERNATIONAL FLIGHTS</h4>';
+                    intFlightsResultDiv.appendChild(intRosterTable);
+                    dutyRosterResultContainer.appendChild(intFlightsResultDiv);
+                }
+
+                const domesticContainer = tempContainer.querySelector('#domesticAssignmentsResult');
+                domesticContainer.innerHTML = `<div class="result-section-title">DOMESTIC</div>`;
+                transferData('domGrid', domesticContainer);
+                
+                const internationalContainer = tempContainer.querySelector('#internationalAssignmentsResult');
+                internationalContainer.innerHTML = `<div class="result-section-title">INTERNATIONAL</div>`;
+                transferData('intGrid', internationalContainer);
+
+                return tempContainer.innerHTML;
+            }
+
+            function transferData(gridId, targetContainer) {
+                Array.from(document.getElementById(gridId).children).forEach(cardNode => {
+                    const titleText = cardNode.querySelector('.pos-title')?.textContent;
+                    if (!titleText) return;
+
+                    const pdfCard = document.createElement('div');
+                    pdfCard.className = 'pdf-card';
+                    if (titleText.toUpperCase() === 'DUTY MANAGER') pdfCard.classList.add('pdf-card-manager');
+                    pdfCard.innerHTML = `<div class="pdf-pos-title">${titleText}</div>`;
+                    
+                    let hasNames = false;
+                    const nameInputs = cardNode.querySelectorAll('.name-item input');
+                    
+                    nameInputs.forEach((input, index) => {
+                        if (input.value) {
+                            hasNames = true;
+                            const isBold = input.style.fontWeight === 'bold' || input.value.includes('(SUP)');
+                            const nameValue = input.value.toUpperCase();
+                            const nameHTML = isBold ? `<b>${nameValue}</b>` : nameValue;
+                            pdfCard.innerHTML += `<div class="pdf-name">${nameHTML}</div>`;
+                        }
+                    });
+
+                    if (hasNames) targetContainer.appendChild(pdfCard);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
