@@ -465,6 +465,12 @@
                         }
                     }
                 });
+
+                // --- MODIFICATION START: Sort tables by time immediately after generation ---
+                sortTableByTime(rosterBodyDom);
+                sortTableByTime(rosterBodyInt);
+                // --- MODIFICATION END ---
+
                 saveGeneratedContent(); 
             }
 
@@ -613,7 +619,9 @@
                             .btn:hover { background-color: #0056b3; }
 
                             .pdf-header { text-align: center; margin-bottom: 10px; }
-                            .pdf-header h1 { font-size: 16px; font-weight: bold; margin: 0; }
+                            /* CSS Update for new headers */
+                            .pdf-header h1 { font-size: 24px; font-weight: 800; margin: 0 0 5px 0; text-transform: uppercase; color: #000; }
+                            .pdf-header h2 { font-size: 16px; font-weight: bold; margin: 0; }
                             .pdf-header p { font-size: 11px; margin: 2px 0; }
                             .pdf-header h3 { font-size: 14px; font-weight: bold; margin: 4px 0 0 0; }
                             
@@ -683,13 +691,20 @@
                 const date = document.getElementById('rosterDate').value;
                 const sessionTitle = document.getElementById('shiftSelector').value + " DUTY ROSTER";
                 
+                // --- MODIFICATION START: Added US BANGLA AIRLINES Header ---
                 tempContainer.innerHTML = `
-                    <div class="pdf-header"><h1>CSD DUTY ROSTER</h1><p>Date: ${date} | Created By: ${creatorName}</p><h3>${sessionTitle}</h3></div>
+                    <div class="pdf-header">
+                        <h1>US BANGLA AIRLINES</h1>
+                        <h2>CSD DUTY ROSTER</h2>
+                        <p>Date: ${date} | Created By: ${creatorName}</p>
+                        <h3>${sessionTitle}</h3>
+                    </div>
                     <div class="final-roster-grid">
                         <div class="flight-duty-column" id="dutyRosterResult"></div>
                         <div class="assignments-column" id="domesticAssignmentsResult"></div>
                         <div class="assignments-column" id="internationalAssignmentsResult"></div>
                     </div>`;
+                // --- MODIFICATION END ---
 
                 const dutyRosterResultContainer = tempContainer.querySelector('#dutyRosterResult');
 
